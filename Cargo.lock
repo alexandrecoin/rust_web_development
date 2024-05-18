@@ -602,6 +602,7 @@ dependencies = [
 name = "rust-web-dev"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "tokio",
  "warp",
 ]
