@@ -1,4 +1,5 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{
     fmt::Debug,
     io::{Error, ErrorKind},
@@ -12,7 +13,7 @@ use warp::{
     Filter, Rejection, Reply,
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Question {
     id: QuestionId,
     title: String,
@@ -31,7 +32,7 @@ impl Question {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, Hash, PartialEq)]
 struct QuestionId(String);
 
 impl FromStr for QuestionId {
@@ -50,9 +51,31 @@ struct InvalidId;
 
 impl Reject for InvalidId {}
 
+struct Store {
+    questions: HashMap<QuestionId, Question>,
+}
+
+impl Store {
+    fn new() -> Self {
+        Store {
+            questions: Self::init(),
+        }
+    }
+
+    fn add_question(mut self, question: Question) -> Self {
+        self.questions.insert(question.id.clone(), question);
+        self
+    }
+
+    fn init() -> HashMap<QuestionId, Question> {
+        let file = include_str!("../questions.json");
+        serde_json::from_str(file).expect("Can't read questions.json")
+    }
+}
+
 async fn get_questions() -> Result<impl warp::Reply, warp::Rejection> {
     let question = Question::new(
-        QuestionId::from_str("ok").expect("No id provided"),
+        QuestionId::from_str("1").expect("No id provided"),
         "First question".to_string(),
         "Content".to_string(),
         Some(vec!["faq".to_string()]),
