@@ -13,7 +13,7 @@ use warp::{
     Filter, Rejection, Reply,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct Question {
     id: QuestionId,
     title: String,
@@ -51,6 +51,7 @@ struct InvalidId;
 
 impl Reject for InvalidId {}
 
+#[derive(Clone)]
 struct Store {
     questions: HashMap<QuestionId, Question>,
 }
@@ -73,7 +74,7 @@ impl Store {
     }
 }
 
-async fn get_questions() -> Result<impl warp::Reply, warp::Rejection> {
+async fn get_questions(store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let question = Question::new(
         QuestionId::from_str("1").expect("No id provided"),
         "First question".to_string(),
@@ -113,9 +114,13 @@ async fn main() {
         .allow_header("content-type")
         .allow_methods(&[Method::GET, Method::POST, Method::PUT, Method::DELETE]);
 
+    let store = Store::new();
+    let store_filter = warp::any().map(move || store.clone());
+
     let get_items = warp::get()
         .and(warp::path("questions"))
         .and(warp::path::end())
+        .and(store_filter)
         .and_then(get_questions)
         .recover(return_error);
 
