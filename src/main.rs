@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use tokio;
+use warp::reject::Reject;
 use warp::{
     cors::CorsForbidden,
     http::{Method, StatusCode},
@@ -71,6 +72,25 @@ async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
         ))
     }
 }
+
+#[derive(Debug)]
+enum Error {
+    ParseError(std::num::ParseIntError),
+    MissingParameters,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Error::ParseError(ref err) => {
+                write!(f, "Cannot parse parameter: {}", err)
+            }
+            Error::MissingParameters => write!(f, "Missing one or more parameters"),
+        }
+    }
+}
+
+impl Reject for Error {}
 
 #[tokio::main]
 async fn main() {
