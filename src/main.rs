@@ -47,20 +47,24 @@ async fn get_questions(
     params: HashMap<String, String>,
     store: Store,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    let mut start = 0;
-
-    if let Some(value) = params.get("start") {
-        start = value.parse::<usize>().expect("Could not parse data");
-    };
-
-    println!("{start}");
-
-    let questions: Vec<Question> = store.questions.values().cloned().collect();
-    Ok(warp::reply::json(&questions))
+    if !params.is_empty() {
+        let pagination = extract_pagination(params)?;
+        let questions: Vec<Question> = store.questions.values().cloned().collect();
+        let questions = &questions[pagination.start..pagination.end];
+        Ok(warp::reply::json(&questions))
+    } else {
+        let questions: Vec<Question> = store.questions.values().cloned().collect();
+        Ok(warp::reply::json(&questions))
+    }
 }
 
 async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
-    if let Some(error) = r.find::<CorsForbidden>() {
+    if let Some(error) = r.find::<Error>() {
+        Ok(warp::reply::with_status(
+            error.to_string(),
+            StatusCode::RANGE_NOT_SATISFIABLE,
+        ))
+    } else if let Some(error) = r.find::<CorsForbidden>() {
         Ok(warp::reply::with_status(
             error.to_string(),
             StatusCode::FORBIDDEN,
@@ -80,7 +84,7 @@ enum Error {
 }
 
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match *self {
             Error::ParseError(ref err) => {
                 write!(f, "Cannot parse parameter: {}", err)
@@ -91,6 +95,30 @@ impl std::fmt::Display for Error {
 }
 
 impl Reject for Error {}
+
+#[derive(Debug)]
+struct Pagination {
+    start: usize,
+    end: usize,
+}
+
+fn extract_pagination(params: HashMap<String, String>) -> Result<Pagination, Error> {
+    if params.contains_key("start") && params.contains_key("end") {
+        return Ok(Pagination {
+            start: params
+                .get("start")
+                .unwrap()
+                .parse::<usize>()
+                .map_err(Error::ParseError)?,
+            end: params
+                .get("end")
+                .unwrap()
+                .parse::<usize>()
+                .map_err(Error::ParseError)?,
+        });
+    }
+    Err(Error::MissingParameters)
+}
 
 #[tokio::main]
 async fn main() {
