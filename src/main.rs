@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::num::ParseIntError;
 use tokio;
 use warp::reject::Reject;
 use warp::{
@@ -48,8 +49,8 @@ async fn get_questions(
     store: Store,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     if !params.is_empty() {
-        let pagination = extract_pagination(params)?;
         let questions: Vec<Question> = store.questions.values().cloned().collect();
+        let pagination = extract_pagination(params, questions.len())?;
         let questions = &questions[pagination.start..pagination.end];
         Ok(warp::reply::json(&questions))
     } else {
@@ -81,6 +82,8 @@ async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
 enum Error {
     ParseError(std::num::ParseIntError),
     MissingParameters,
+    NonProcessable,
+    OutOfBounds,
 }
 
 impl std::fmt::Display for Error {
@@ -90,6 +93,8 @@ impl std::fmt::Display for Error {
                 write!(f, "Cannot parse parameter: {}", err)
             }
             Error::MissingParameters => write!(f, "Missing one or more parameters"),
+            Error::NonProcessable => write!(f, "Start parameter cannot be greater than end parameter"),
+            Error::OutOfBounds => write!(f, "Not enough questions, please lower your end parameter"),
         }
     }
 }
@@ -102,20 +107,23 @@ struct Pagination {
     end: usize,
 }
 
-fn extract_pagination(params: HashMap<String, String>) -> Result<Pagination, Error> {
+fn extract_pagination(params: HashMap<String, String>, max_possible_length: usize) -> Result<Pagination, Error> {
     if params.contains_key("start") && params.contains_key("end") {
+        let start = params.get("start").unwrap().parse::<usize>().map_err(Error::ParseError)?;
+        let end = params.get("end").unwrap().parse::<usize>().map_err(Error::ParseError)?;
+
+        if start > end {
+            return Err(Error::NonProcessable);
+        };
+
+        if end > max_possible_length {
+            return Err(Error::OutOfBounds);
+        };
+
         return Ok(Pagination {
-            start: params
-                .get("start")
-                .unwrap()
-                .parse::<usize>()
-                .map_err(Error::ParseError)?,
-            end: params
-                .get("end")
-                .unwrap()
-                .parse::<usize>()
-                .map_err(Error::ParseError)?,
-        });
+            start,
+            end,
+        })
     }
     Err(Error::MissingParameters)
 }
