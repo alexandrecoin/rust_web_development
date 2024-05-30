@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use tokio;
 use tokio::sync::RwLock;
+use warp::body::BodyDeserializeError;
 use warp::reject::Reject;
 use warp::{
     cors::CorsForbidden,
@@ -34,8 +35,11 @@ impl Store {
         }
     }
 
-    async fn add_question(mut self, question: Question) -> Self {
-        self.questions.write().await.insert(question.id.clone(), question);
+    async fn add_question(self, question: Question) -> Self {
+        self.questions
+            .write()
+            .await
+            .insert(question.id.clone(), question);
         self
     }
 
@@ -61,11 +65,28 @@ async fn get_questions(
 }
 
 async fn add_question(store: Store, question: Question) -> Result<impl Reply, Rejection> {
-    store.questions.write().await.insert(question.id.clone(), question);
+    store
+        .questions
+        .write()
+        .await
+        .insert(question.id.clone(), question);
     Ok(warp::reply::with_status("Question added", StatusCode::OK))
 }
 
+async fn update_question(
+    id: String,
+    store: Store,
+    question: Question,
+) -> Result<impl Reply, Rejection> {
+    match store.questions.write().await.get_mut(&QuestionId(id)) {
+        Some(q) => *q = question,
+        None => return Err(warp::reject::custom(Error::QuestionNotFound)),
+    }
+    Ok(warp::reply::with_status("Question updated", StatusCode::OK))
+}
+
 async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
+    println!("{:?}", r);
     if let Some(error) = r.find::<Error>() {
         Ok(warp::reply::with_status(
             error.to_string(),
@@ -75,6 +96,11 @@ async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
         Ok(warp::reply::with_status(
             error.to_string(),
             StatusCode::FORBIDDEN,
+        ))
+    } else if let Some(error) = r.find::<BodyDeserializeError>() {
+        Ok(warp::reply::with_status(
+            error.to_string(),
+            StatusCode::UNPROCESSABLE_ENTITY,
         ))
     } else {
         Ok(warp::reply::with_status(
@@ -90,6 +116,7 @@ enum Error {
     MissingParameters,
     NonProcessable,
     OutOfBounds,
+    QuestionNotFound,
 }
 
 impl std::fmt::Display for Error {
@@ -104,6 +131,9 @@ impl std::fmt::Display for Error {
             }
             Error::OutOfBounds => {
                 write!(f, "Not enough questions, please lower your end parameter")
+            }
+            Error::QuestionNotFound => {
+                write!(f, "Question not found")
             }
         }
     }
@@ -170,7 +200,19 @@ async fn main() {
         .and(warp::body::json())
         .and_then(add_question);
 
-    let routes = get_items.or(add_item).with(cors).recover(return_error);
+    let update_item = warp::put()
+        .and(warp::path("questions"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(update_question);
+
+    let routes = get_items
+        .or(add_item)
+        .or(update_item)
+        .with(cors)
+        .recover(return_error);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
