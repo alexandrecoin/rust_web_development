@@ -23,6 +23,12 @@ struct Question {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, Hash, PartialEq)]
 struct QuestionId(String);
 
+impl std::fmt::Display for QuestionId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", "QuestionId is")
+    }
+}
+
 struct Answer {
     id: AnswerId,
     content: String,
@@ -114,7 +120,10 @@ async fn add_answer(
             None => return Err(warp::reject::custom(Error::MissingParameters)),
         },
         question_id: match params.get("questionId") {
-            Some(id) => QuestionId(id.to_string()),
+            Some(id) => match store.questions.read().await.get(&QuestionId(id.to_string())) {
+                Some(q) => QuestionId(q.id.to_string()),
+                None => return Err(warp::reject::custom(Error::QuestionNotFound))
+            },
             None => return Err(warp::reject::custom(Error::MissingParameters)),
         },
     };
@@ -127,6 +136,8 @@ async fn add_answer(
 
     Ok(warp::reply::with_status("Answer created", StatusCode::OK))
 }
+
+
 
 async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
     println!("{:?}", r);
