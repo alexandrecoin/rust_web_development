@@ -1,8 +1,8 @@
 use crate::{store, types};
+use handle_errors::Error;
 use std::collections::HashMap;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
-use handle_errors::Error;
 
 pub(crate) async fn add_answer(
     store: store::Store,

@@ -1,8 +1,8 @@
 use crate::{store, types};
+use handle_errors::Error;
 use std::collections::HashMap;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
-use handle_errors::Error;
 
 pub(crate) async fn get_questions(
     params: HashMap<String, String>,
@@ -54,7 +54,7 @@ pub(crate) async fn delete_question(
     id: String,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    return match store
+    match store
         .questions
         .write()
         .await
@@ -62,5 +62,5 @@ pub(crate) async fn delete_question(
     {
         Some(_) => Ok(warp::reply::with_status("Question deleted", StatusCode::OK)),
         None => Err(warp::reject::custom(Error::QuestionNotFound)),
-    };
+    }
 }

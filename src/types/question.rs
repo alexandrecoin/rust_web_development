@@ -14,6 +14,6 @@ pub struct QuestionId(pub String);
 
 impl std::fmt::Display for QuestionId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", "QuestionId is")
+        write!(f, "QuestionId is")
     }
 }

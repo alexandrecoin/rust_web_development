@@ -1,9 +1,5 @@
-use log::error;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use tokio;
-use warp::{http::Method, Filter, Reply};
 use handle_errors::return_error;
+use warp::{http::Method, Filter};
 
 mod routes;
 mod store;
