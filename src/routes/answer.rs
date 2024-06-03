@@ -1,7 +1,8 @@
-use crate::{error, store, types};
+use crate::{store, types};
 use std::collections::HashMap;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
+use handle_errors::Error;
 
 pub(crate) async fn add_answer(
     store: store::Store,
@@ -11,7 +12,7 @@ pub(crate) async fn add_answer(
         id: types::answer::AnswerId("1".to_string()),
         content: match params.get("content") {
             Some(c) => c.to_string(),
-            None => return Err(warp::reject::custom(error::Error::MissingParameters)),
+            None => return Err(warp::reject::custom(Error::MissingParameters)),
         },
         question_id: match params.get("questionId") {
             Some(id) => match store
@@ -21,9 +22,9 @@ pub(crate) async fn add_answer(
                 .get(&types::question::QuestionId(id.to_string()))
             {
                 Some(q) => types::question::QuestionId(q.id.to_string()),
-                None => return Err(warp::reject::custom(error::Error::QuestionNotFound)),
+                None => return Err(warp::reject::custom(Error::QuestionNotFound)),
             },
-            None => return Err(warp::reject::custom(error::Error::MissingParameters)),
+            None => return Err(warp::reject::custom(Error::MissingParameters)),
         },
     };
 

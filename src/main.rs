@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio;
 use warp::{http::Method, Filter, Reply};
+use handle_errors::return_error;
 
-mod error;
 mod routes;
 mod store;
 mod types;
@@ -61,7 +61,7 @@ async fn main() {
         .or(delete_item)
         .or(add_answer)
         .with(cors)
-        .recover(error::return_error);
+        .recover(return_error);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
