@@ -2,3 +2,5 @@
 /.idea
 
 /handle-errors/target
+
+stderr.log

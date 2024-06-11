@@ -1,4 +1,5 @@
 use handle_errors::return_error;
+use log::log;
 use warp::{http::Method, Filter};
 
 mod routes;
@@ -7,6 +8,16 @@ mod types;
 
 #[tokio::main]
 async fn main() {
+    log4rs::init_file("log4rs.yml", Default::default()).unwrap();
+
+    log::error!("This is an error");
+    log::warn!("This is a warning");
+    log::info!("This is an info");
+
+    let log = warp::log::custom(|info| {
+        log::info!("{} {} {} {:?} {:?}", info.method(), info.path(), info.status(), info.elapsed(), info.request_headers());
+    });
+
     let cors = warp::cors()
         .allow_any_origin()
         .allow_header("content-type")
@@ -57,6 +68,7 @@ async fn main() {
         .or(delete_item)
         .or(add_answer)
         .with(cors)
+        .with(log)
         .recover(return_error);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
