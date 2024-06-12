@@ -7,18 +7,14 @@ use warp::{Rejection, Reply};
 pub(crate) async fn get_questions(
     params: HashMap<String, String>,
     store: store::Store,
-    id: String,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    log::info!("Starting querying questions - {}", id);
     if !params.is_empty() {
         let questions: Vec<types::question::Question> =
             store.questions.read().await.values().cloned().collect();
         let pagination = types::pagination::extract_pagination(params, questions.len())?;
-        log::info!("{} - Pagination set {:?}", id, &pagination);
         let questions = &questions[pagination.start..pagination.end];
         Ok(warp::reply::json(&questions))
     } else {
-        log::info!("{} - No pagination used", id);
         let questions: Vec<types::question::Question> =
             store.questions.read().await.values().cloned().collect();
         Ok(warp::reply::json(&questions))
